@@ -27,6 +27,15 @@ if "supabase" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state["user"] = {"id": None, "email": None}
 
+# UI state helpers (safe keys)
+for k, v in {
+    "draft_text": "",
+    "ref_text": "",
+    "improved_text": "",
+    "rephrased_text": "",
+}.items():
+    st.session_state.setdefault(k, v)
+
 supabase = st.session_state.supabase
 
 # ---------------- Authentication ----------------
@@ -45,17 +54,17 @@ if st.sidebar.button("Sign out"):
 user_id = st.session_state["user"]["id"]
 
 # ---------------- Chroma setup ----------------
+# If you ever move this to another machine, just keep the same folder name.
 client = chromadb.PersistentClient(path=".chroma_store")
 collection_name = "chapter_versions"
 collection = client.get_or_create_collection(collection_name)
 
-
+# ---------------- Helpers ----------------
 def get_collection_stats():
     try:
         return collection.get(include=["documents", "metadatas"])
     except Exception:
         return None
-
 
 def reset_collection():
     try:
@@ -63,7 +72,6 @@ def reset_collection():
         st.success(f"✅ Collection '{collection_name}' reset.")
     except Exception as e:
         st.error(f"❌ Error deleting collection: {e}")
-
 
 def show_leaderboard():
     log_file = "reward_progression_log.csv"
@@ -84,7 +92,6 @@ def show_leaderboard():
     else:
         st.warning("⚠️ No reward_progression_log.csv found.")
 
-
 def preload_sample_document():
     try:
         collection.add(
@@ -95,7 +102,6 @@ def preload_sample_document():
         st.success("✅ Sample document added to collection.")
     except Exception as e:
         st.error(f"❌ Error adding sample document: {e}")
-
 
 def show_version_summary():
     results = get_collection_stats()
@@ -108,7 +114,6 @@ def show_version_summary():
             st.code(doc)
     else:
         st.info("ℹ️ No documents found in collection.")
-
 
 def show_version_differences():
     results = get_collection_stats()
@@ -145,11 +150,8 @@ def show_version_differences():
     else:
         st.warning("⚠️ Need at least two documents to compare.")
 
-
 def rephrase_with_ollama(prompt_text, model_name="llama3"):
-    """
-    Optional: Connects to local Ollama. On Streamlit Cloud, this will not work.
-    """
+    """Uses local Ollama (http://localhost:11434)."""
     try:
         url = "http://localhost:11434/api/generate"
         payload = {
@@ -160,9 +162,8 @@ def rephrase_with_ollama(prompt_text, model_name="llama3"):
         response = requests.post(url, json=payload, timeout=120)
         response.raise_for_status()
         return response.json().get("response", "")
-    except Exception:
-        return "⚠️ Ollama API not available in this environment."
-
+    except Exception as e:
+        return f"⚠️ Ollama error: {e}"
 
 # ---------------- Reward Normalization ----------------
 def _coerce_float(x, default=0.0):
@@ -171,13 +172,11 @@ def _coerce_float(x, default=0.0):
     except Exception:
         return default
 
-
 def _coerce_int(x, default=0):
     try:
         return int(float(x))
     except Exception:
         return default
-
 
 def safe_compute_reward(text: str, reference_text: str = None):
     """
@@ -214,73 +213,119 @@ def safe_compute_reward(text: str, reference_text: str = None):
 
     return score, sim, read, errors
 
-
-# ---------------- Draft Editor ----------------
+# ---------------- Draft Editor (fixed) ----------------
 def draft_editor():
     st.subheader("📝 Draft Editor")
+
+    # 🔹 Initialize canonical states if not already present
+    if "draft_text" not in st.session_state:
+        st.session_state["draft_text"] = ""
+    if "ref_text" not in st.session_state:
+        st.session_state["ref_text"] = ""
+
     col1, col2 = st.columns([2, 1])
     with col1:
-        draft_text = st.text_area("Write your draft:", height=300, key="draft_text")
-        reference_text = st.text_area(
-            "Reference Text (optional):", height=150, key="ref_text"
+        # Main draft area: bind to widget key, but use canonical draft_text for value
+        draft_text = st.text_area(
+            "Write your draft:",
+            value=st.session_state["draft_text"],
+            key="draft_text_widget",
+            height=300,
         )
+        st.session_state["draft_text"] = draft_text  # keep canonical copy
+
+        ref_text = st.text_area(
+            "Reference Text (optional):",
+            value=st.session_state["ref_text"],
+            key="ref_text_widget",
+            height=150,
+        )
+        st.session_state["ref_text"] = ref_text
+
     with col2:
         st.markdown("**Tools**")
+
+        # 1) Improve Grammar & Style
         if st.button("✨ Improve Grammar & Style"):
-            if draft_text.strip():
+            draft = st.session_state["draft_text"].strip()
+            if draft:
                 try:
-                    improved = correct_grammar_and_style(draft_text)
-                    st.session_state["draft_text"] = improved
-                    st.success("✅ Draft improved.")
+                    st.session_state["improved_text"] = correct_grammar_and_style(draft)
+                    st.success("✅ Draft improved. Review the preview below, then click 'Apply Improved Text'.")
                 except Exception as e:
                     st.error(f"⚠️ Grammar/Style failed: {e}")
             else:
                 st.error("Please enter draft text first.")
 
+        # 2) Keywords
         if st.button("🔑 Extract Keywords"):
-            if draft_text.strip():
+            draft = st.session_state["draft_text"].strip()
+            if draft:
                 try:
-                    kws = extract_keywords(draft_text)
+                    kws = extract_keywords(draft)
                     st.write(kws)
                 except Exception as e:
                     st.error(f"⚠️ Keyword extraction failed: {e}")
             else:
                 st.error("Please enter draft text first.")
 
+        # 3) Plagiarism
         if st.button("🧪 Check Plagiarism"):
-            if draft_text.strip():
+            draft = st.session_state["draft_text"].strip()
+            if draft:
                 try:
-                    report = check_plagiarism(draft_text)
+                    report = check_plagiarism(draft)
                     st.write(report)
                 except Exception as e:
                     st.error(f"⚠️ Plagiarism check failed: {e}")
             else:
                 st.error("Please enter draft text first.")
 
+    # If there's an improved version, show it with an Apply button
+    if st.session_state.get("improved_text"):
+        st.markdown("#### ✍️ Improved Preview")
+        st.text_area(
+            "Improved Draft (preview)",
+            value=st.session_state["improved_text"],
+            key="improved_preview",
+            height=180,
+        )
+        if st.button("✅ Apply Improved Text"):
+            # ✅ Update canonical draft only
+            st.session_state["draft_text"] = st.session_state["improved_text"]
+            st.session_state["improved_text"] = ""  # clear preview
+            st.success("✅ Applied improved text.")
+            st.rerun()
+
     st.divider()
     c1, c2, c3 = st.columns(3)
+
     with c1:
         if st.button("📈 Evaluate Draft"):
-            res = safe_compute_reward(draft_text, reference_text)
+            draft = st.session_state["draft_text"]
+            res = safe_compute_reward(draft, st.session_state["ref_text"])
             if res:
                 score, sim, read, errors = res
                 st.success("✅ Evaluation complete.")
                 st.write(
-                    f"**Reward Score:** {score:.2f} | Similarity {sim:.2f} | Readability {read:.2f} | Errors {errors}"
+                    f"**Reward Score:** {score:.2f} | Similarity {sim:.2f} | "
+                    f"Readability {read:.2f} | Errors {errors}"
                 )
 
     with c2:
         if st.button("💾 Save as Candidate"):
-            if draft_text.strip():
+            draft = st.session_state["draft_text"].strip()
+            if draft:
                 with open("latest_candidate.txt", "w", encoding="utf-8") as f:
-                    f.write(draft_text)
+                    f.write(draft)
                 st.success("✅ Saved to latest_candidate.txt")
             else:
                 st.error("Please enter draft text first.")
 
     with c3:
         if st.button("☁️ Save as New Version"):
-            if draft_text.strip():
+            draft = st.session_state["draft_text"].strip()
+            if draft:
                 try:
                     results = collection.get(include=["metadatas"])
                     existing_versions = [
@@ -296,43 +341,67 @@ def draft_editor():
 
                 try:
                     collection.add(
-                        documents=[draft_text],
-                        metadatas=[
-                            {"version": str(new_version_number), "date": timestamp}
-                        ],
+                        documents=[draft],
+                        metadatas=[{"version": str(new_version_number), "date": timestamp}],
                         ids=[f"version_{new_version_number}"],
                     )
-                    save_document(new_version_number, draft_text, timestamp)
-                    st.success(
-                        f"✅ Version {new_version_number} saved to Chroma & Supabase."
-                    )
+                    save_document(new_version_number, draft, timestamp)
+                    st.success(f"✅ Version {new_version_number} saved to Chroma & Supabase.")
                 except Exception as e:
                     st.error(f"❌ Save failed: {e}")
             else:
                 st.error("Please enter draft text first.")
 
-
-# ---------------- AI Rewrite Review ----------------
+# ---------------- AI Rewrite Review (fixed) ----------------
 def ai_rewrite_review():
     candidate_file = "latest_candidate.txt"
     st.subheader("📄 Candidate Version Content")
+
     if os.path.exists(candidate_file):
         with open(candidate_file, "r", encoding="utf-8") as f:
             candidate_text = f.read()
 
-        edited_text = st.text_area("Editable Text", candidate_text, height=400)
+        # Handle staged rephrased text safely
+        if "candidate_editor_temp" in st.session_state:
+            editor_value = st.session_state["candidate_editor_temp"]
+            del st.session_state["candidate_editor_temp"]
+        else:
+            editor_value = st.session_state.get("candidate_editor", candidate_text)
 
+        # Editable text box
+        edited_text = st.text_area(
+            "Editable Text",
+            value=editor_value,
+            key="candidate_editor",
+            height=400
+        )
+
+        # Rephrase via Ollama ⇒ goes to preview box (no in-place overwrite)
         if st.button("🤖 Rephrase with Ollama"):
-            rephrased_text = rephrase_with_ollama(edited_text)
-            st.text_area("Rephrased Output", rephrased_text, height=400)
+            st.session_state["rephrased_text"] = rephrase_with_ollama(edited_text)
 
+        # Show rephrased output if available
+        if st.session_state.get("rephrased_text", ""):
+            st.text_area(
+                "Rephrased Output",
+                st.session_state["rephrased_text"],
+                key="rephrased_output",
+                height=300
+            )
+            if st.button("⬅️ Use Rephrased As Edited"):
+                # Stage the new content in a temp key, then rerun
+                st.session_state["candidate_editor_temp"] = st.session_state["rephrased_text"]
+                st.session_state["rephrased_text"] = ""
+                st.rerun()
+
+        # Evaluate current edited text
         res = safe_compute_reward(edited_text)
         if not res:
             return
         final_score, sim, read, errors = res
-
         st.write(
-            f"**Reward Score:** {final_score:.2f} | Similarity {sim:.2f} | Readability {read:.2f} | Errors {errors}"
+            f"**Reward Score:** {final_score:.2f} | Similarity {sim:.2f} | "
+            f"Readability {read:.2f} | Errors {errors}"
         )
 
         if st.button("✅ Approve & Save"):
@@ -395,7 +464,6 @@ def ai_rewrite_review():
     else:
         st.info("ℹ️ No candidate version found. Save one from **Draft Editor**.")
 
-
 # ---------------- Rephrasing Loop ----------------
 def run_rephrasing_loop():
     try:
@@ -410,7 +478,6 @@ def run_rephrasing_loop():
             return False, result.stderr
     except Exception as e:
         return False, str(e)
-
 
 # ---------------- Sidebar Navigation ----------------
 st.title("📖 Automated Book Publication — Admin Dashboard")

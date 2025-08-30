@@ -1,6 +1,11 @@
 # Core
-streamlit==1.37.0
-chromadb==0.4.15
+streamlit==1.26.0
+chromadb==0.4.3
+duckdb==0.8.1
+pydantic==1.10.9
+uvicorn==0.23.2
+fastapi==0.100.0
+
 pandas==2.2.2
 matplotlib==3.9.0
 requests==2.32.3
