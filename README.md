@@ -30,13 +30,16 @@ The goal of this project is to build an **Automated Book Publication Software-as
 
 ## 🖼️ Screenshots & Demo
 
+**Video:**
+[![Watch the demo](https://img.youtube.com/vi/bKiTDNX7EJY/0.jpg)](https://youtu.be/bKiTDNX7EJY)
+
 **Dashboard Editor:**  
 ![Draft Editor Screenshot](images/draft_editor2.png)  
 
 **AI Rephrase Preview:**  
 ![Rephrase Output Screenshot](images/rephrase_output.png)  
 
-**Short Demo GIF (Optional):**  
+**Short Demo GIF:**  
 ![App Demo GIF](videos/demo.gif)  
 
 ---
@@ -55,9 +58,28 @@ The goal of this project is to build an **Automated Book Publication Software-as
 
 ## 📦 Installation & Local Setup
 
-1️⃣ Clone this repository:  
+1️⃣ Clone this repository:
 ```bash
-git clone https://github.com/saifmukadam10/automated-book-publication.git
-cd automated-book-publication
-.git
-cd automated-book-publication
+git clone https://github.com/saifmukadam10/automated-book-publication-saas.git
+cd automated-book-publication-saas
+
+2️⃣ Create a virtual environment and install dependencies:
+python -m venv .venv
+source .venv/bin/activate    # (Linux/Mac)
+.venv\Scripts\activate       # (Windows)
+
+pip install -r requirements.txt
+
+3️⃣ Run the Streamlit app:
+streamlit run rl_search/dashboard_app.py
+
+4️⃣ Open the app in your browser:
+http://localhost:8501
+
+📧 Contact
+
+👤 Saif Mukadam
+📍 Computer Science Engineer (AI & ML) at M.H. Saboo Siddik College of Engineering
+🔗 [LinkedIn](https://www.linkedin.com/in/saif-mukadam-10m)
+📧 +91 9619133704
+📧 [mukadamsaif9@gmail.com](mailto:mukadamsaif9@gmail.com)
