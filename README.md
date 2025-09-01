@@ -34,10 +34,10 @@ The goal of this project is to build an **Automated Book Publication Software-as
 [![Watch the demo](https://img.youtube.com/vi/bKiTDNX7EJY/0.jpg)](https://youtu.be/bKiTDNX7EJY)
 
 **Dashboard Editor:**  
-![Draft Editor Screenshot](images/draft_editor2.png)  
+![Draft Editor Screenshot](draft_editor2.png)  
 
 **AI Rephrase Preview:**  
-![Rephrase Output Screenshot](images/rephrase_output.png)  
+![Rephrase Output Screenshot](rephrase_output.png)  
 
 **Short Demo GIF:**  
 ![App Demo GIF](videos/demo.gif)  
